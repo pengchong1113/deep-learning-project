@@ -13,6 +13,7 @@ import torch
 
 sys.path.append(str(Path(__file__).parent.parent))
 from model.lstm_classifier import FitnessLSTM, ACTION_LABELS, SEQ_LEN
+from backend.rep_counter import count_reps
 
 MODEL_PATH    = Path('model/saved_model/best_model.pt')
 LANDMARKER_PATH = Path('models/pose_landmarker_lite.task')
@@ -43,9 +44,11 @@ class Predictor:
         )
         return mp.tasks.vision.PoseLandmarker.create_from_options(options)
 
-    def _extract_keypoints(self, video_path: str) -> np.ndarray:
+    def _extract_keypoints(self, video_path: str):
+        """Returns (frames, 99) flattened array and (frames, 33, 3) full array."""
         cap = cv2.VideoCapture(video_path)
-        seq = []
+        flat_seq = []
+        full_seq = []
 
         while True:
             ok, frame = cap.read()
@@ -61,10 +64,14 @@ class Predictor:
             else:
                 kp = np.zeros((33, 3), dtype=np.float32)
 
-            seq.append(kp.flatten())   # (99,)
+            full_seq.append(kp)
+            flat_seq.append(kp.flatten())
 
         cap.release()
-        return np.array(seq, dtype=np.float32)   # (frames, 99)
+        return (
+            np.array(flat_seq, dtype=np.float32),   # (frames, 99)
+            np.array(full_seq, dtype=np.float32),   # (frames, 33, 3)
+        )
 
     def _pad_or_truncate(self, kp: np.ndarray) -> np.ndarray:
         n = len(kp)
@@ -74,24 +81,30 @@ class Predictor:
         return np.concatenate([kp, pad], axis=0)
 
     def predict(self, video_path: str) -> dict:
-        kp = self._extract_keypoints(video_path)
+        kp_flat, kp_full = self._extract_keypoints(video_path)
 
-        if len(kp) == 0:
+        if len(kp_flat) == 0:
             return {'error': 'No pose detected in video'}
 
-        kp_padded = self._pad_or_truncate(kp)                          # (SEQ_LEN, 99)
-        x         = torch.tensor(kp_padded).unsqueeze(0).to(self.device)  # (1, SEQ_LEN, 99)
+        # Action classification
+        kp_padded = self._pad_or_truncate(kp_flat)
+        x         = torch.tensor(kp_padded).unsqueeze(0).to(self.device)
 
         with torch.no_grad():
             logits = self.model(x)
             probs  = torch.softmax(logits, dim=1).squeeze().cpu().tolist()
 
         top_idx = int(np.argmax(probs))
+        action  = ACTION_LABELS[top_idx]
+
+        # Rep counting on the full (unpadded) keypoint sequence
+        rep_result = count_reps(kp_full, action)
 
         return {
-            'action':        ACTION_LABELS[top_idx],
-            'confidence':    round(probs[top_idx], 4),
-            'probabilities': {
+            'action':         action,
+            'confidence':     round(probs[top_idx], 4),
+            'reps':           rep_result['reps'],
+            'probabilities':  {
                 label: round(prob, 4)
                 for label, prob in zip(ACTION_LABELS, probs)
             },

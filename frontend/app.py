@@ -39,7 +39,10 @@ if uploaded:
 
             emoji = ACTION_EMOJI.get(action, '🏃')
             st.markdown(f'## {emoji} {action.replace("_", " ").title()}')
-            st.metric('Confidence', f'{confidence:.1%}')
+
+            col1, col2 = st.columns(2)
+            col1.metric('Confidence', f'{confidence:.1%}')
+            col2.metric('Reps counted', result.get('reps', 0))
 
             st.subheader('All predictions')
             sorted_probs = sorted(probs.items(), key=lambda x: x[1], reverse=True)
