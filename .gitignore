@@ -1,0 +1,50 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# Data (too large for git)
+data/raw/
+data/processed/
+data/test_videos/
+
+# Model weights
+model/saved_model/
+models/
+*.pt
+*.pth
+*.h5
+*.keras
+*.onnx
+
+# IDE
+.vscode/
+.idea/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Assignment files
+*.pdf
+
+# Logs
+logs/
+*.log
+runs/

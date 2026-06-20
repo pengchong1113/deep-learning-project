@@ -1,0 +1,26 @@
+# Core
+numpy
+scipy
+pandas
+tqdm
+matplotlib
+
+# Computer Vision & Pose Estimation
+opencv-python
+mediapipe==0.9.3
+
+# Deep Learning
+torch
+torchvision
+
+# Backend
+fastapi
+uvicorn
+python-multipart
+
+# Frontend
+streamlit
+
+# Notebook
+jupyterlab
+ipykernel
