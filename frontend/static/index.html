@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fitness Assistant</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0e1117;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    /* ── Hero ── */
+    .hero { text-align: center; margin-bottom: 2.5rem; }
+    .hero h1 {
+      font-size: 2.8rem;
+      font-weight: 800;
+      background: linear-gradient(90deg, #00d4ff, #7b2ff7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p { color: #8b8fa8; margin-top: 0.5rem; font-size: 1rem; }
+
+    /* ── Main layout ── */
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      width: 100%;
+      max-width: 960px;
+    }
+    @media (max-width: 640px) { .layout { grid-template-columns: 1fr; } }
+
+    /* ── Upload area ── */
+    .upload-box {
+      border: 2px dashed #2e3550;
+      border-radius: 16px;
+      padding: 2.5rem 1rem;
+      text-align: center;
+      color: #8b8fa8;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .upload-box:hover { border-color: #7b2ff7; }
+    .upload-box .icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .upload-box input[type="file"] { display: none; }
+
+    video {
+      width: 100%;
+      border-radius: 12px;
+      margin-top: 1rem;
+      background: #000;
+    }
+
+    .btn {
+      width: 100%;
+      margin-top: 1rem;
+      padding: 0.85rem;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(90deg, #00d4ff, #7b2ff7);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── Results panel ── */
+    .results-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: #8b8fa8;
+      text-align: center;
+      gap: 0.5rem;
+      font-size: 0.95rem;
+    }
+    .placeholder .icon { font-size: 3rem; }
+
+    .result-card {
+      background: linear-gradient(135deg, #1a1f2e, #252b3b);
+      border: 1px solid #2e3550;
+      border-radius: 16px;
+      padding: 1.8rem;
+      text-align: center;
+    }
+    .result-emoji { font-size: 3.5rem; }
+    .result-action {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-top: 0.3rem;
+    }
+
+    .metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    .metric-card {
+      background: #1a1f2e;
+      border: 1px solid #2e3550;
+      border-radius: 12px;
+      padding: 1.2rem;
+      text-align: center;
+    }
+    .metric-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #8b8fa8;
+      margin-bottom: 0.3rem;
+    }
+    .metric-value { font-size: 1.8rem; font-weight: 700; color: #00d4ff; }
+
+    .section-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #8b8fa8;
+      margin-bottom: 0.5rem;
+    }
+    .prob-row {
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+      margin-bottom: 0.55rem;
+    }
+    .prob-label { font-size: 0.88rem; color: #c0c4d6; width: 130px; flex-shrink: 0; }
+    .prob-label.top { color: #fff; font-weight: 600; }
+    .prob-bar-bg {
+      flex: 1;
+      background: #1a1f2e;
+      border-radius: 99px;
+      height: 7px;
+      overflow: hidden;
+    }
+    .prob-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #00d4ff, #7b2ff7);
+      transition: width 0.4s ease;
+    }
+    .prob-pct { font-size: 0.82rem; color: #8b8fa8; width: 38px; text-align: right; }
+
+    .spinner {
+      border: 3px solid #2e3550;
+      border-top-color: #00d4ff;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      animation: spin 0.8s linear infinite;
+      margin: 2rem auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error {
+      background: #2a1a1a;
+      border: 1px solid #7f2020;
+      border-radius: 10px;
+      padding: 1rem;
+      color: #ff6b6b;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="hero">
+    <h1>💪 Fitness Assistant</h1>
+    <p>Upload a workout video — AI identifies the exercise and counts your reps</p>
+  </div>
+
+  <div class="layout">
+
+    <!-- Left: upload -->
+    <div>
+      <label class="upload-box" id="uploadBox">
+        <input type="file" id="fileInput" accept="video/*" />
+        <div class="icon">🎬</div>
+        <div>Click to upload a video</div>
+        <div style="font-size:0.8rem; margin-top:0.3rem;">MP4 · AVI · MOV · MKV</div>
+      </label>
+
+      <video id="videoPreview" controls style="display:none;"></video>
+
+      <button class="btn" id="analyzeBtn" disabled>Analyze</button>
+    </div>
+
+    <!-- Right: results -->
+    <div class="results-panel" id="resultsPanel">
+      <div class="placeholder">
+        <div class="icon">📊</div>
+        <div>Results will appear here</div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const fileInput   = document.getElementById('fileInput');
+    const uploadBox   = document.getElementById('uploadBox');
+    const videoEl     = document.getElementById('videoPreview');
+    const analyzeBtn  = document.getElementById('analyzeBtn');
+    const resultsPanel = document.getElementById('resultsPanel');
+
+    const ACTION_EMOJI = {
+      squat: '🏋️', pushup: '💪', situp: '🤸', pullup: '🙌',
+      jumping_jacks: '⭐', jump_rope: '🪢', bench_press: '🏋️', clean_and_jerk: '🥇'
+    };
+
+    let selectedFile = null;
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+      selectedFile = file;
+      videoEl.src = URL.createObjectURL(file);
+      videoEl.style.display = 'block';
+      analyzeBtn.disabled = false;
+      resultsPanel.innerHTML = '<div class="placeholder"><div class="icon">📊</div><div>Results will appear here</div></div>';
+    });
+
+    analyzeBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      analyzeBtn.disabled = true;
+      resultsPanel.innerHTML = '<div class="spinner"></div>';
+
+      const form = new FormData();
+      form.append('file', selectedFile);
+
+      try {
+        const res = await fetch('/predict', { method: 'POST', body: form });
+        const data = await res.json();
+
+        if (!res.ok) {
+          resultsPanel.innerHTML = `<div class="error">Error: ${data.detail || 'Unknown error'}</div>`;
+          return;
+        }
+
+        const action = data.action;
+        const emoji  = ACTION_EMOJI[action] || '🏃';
+        const label  = action.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        const conf   = (data.confidence * 100).toFixed(0) + '%';
+        const reps   = data.reps ?? 0;
+
+        const sorted = Object.entries(data.probabilities)
+          .sort((a, b) => b[1] - a[1]);
+
+        const bars = sorted.map(([lbl, prob], i) => {
+          const name = lbl.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          const pct  = (prob * 100).toFixed(0);
+          return `
+            <div class="prob-row">
+              <span class="prob-label ${i === 0 ? 'top' : ''}">${name}</span>
+              <div class="prob-bar-bg">
+                <div class="prob-bar-fill" style="width:${pct}%"></div>
+              </div>
+              <span class="prob-pct">${pct}%</span>
+            </div>`;
+        }).join('');
+
+        resultsPanel.innerHTML = `
+          <div class="result-card">
+            <div class="result-emoji">${emoji}</div>
+            <div class="result-action">${label}</div>
+          </div>
+          <div class="metrics">
+            <div class="metric-card">
+              <div class="metric-label">Confidence</div>
+              <div class="metric-value">${conf}</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Reps Counted</div>
+              <div class="metric-value">${reps}</div>
+            </div>
+          </div>
+          <div>
+            <div class="section-label">All predictions</div>
+            ${bars}
+          </div>`;
+
+      } catch (err) {
+        resultsPanel.innerHTML = `<div class="error">Connection error — make sure the backend is running.</div>`;
+      } finally {
+        analyzeBtn.disabled = false;
+      }
+    });
+  </script>
+
+</body>
+</html>

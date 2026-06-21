@@ -11,8 +11,12 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from backend.predictor import Predictor
+
+STATIC_DIR = Path(__file__).parent.parent / 'frontend' / 'static'
 
 predictor: Predictor = None
 
@@ -33,6 +37,13 @@ app.add_middleware(
     allow_methods=['*'],
     allow_headers=['*'],
 )
+
+app.mount('/static', StaticFiles(directory=str(STATIC_DIR)), name='static')
+
+
+@app.get('/')
+def index():
+    return FileResponse(str(STATIC_DIR / 'index.html'))
 
 
 @app.get('/health')
