@@ -3,7 +3,7 @@ services:
     name: fitness-assistant
     runtime: python
     plan: free
-    branch: naven
+    branch: main
     buildCommand: "pip install -r requirements.txt && python -c \"from scripts.extract_keypoints import ensure_model; ensure_model()\""
     startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: /health
