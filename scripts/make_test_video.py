@@ -8,10 +8,12 @@ Usage:
 
 import argparse
 import random
+import subprocess
+import tempfile
 from pathlib import Path
 
 import cv2
-import numpy as np
+import imageio_ffmpeg
 import scipy.io as sio
 
 FRAMES_DIR = Path('data/raw/Penn_Action/frames')
@@ -25,6 +27,10 @@ FITNESS_ACTIONS = [
 
 
 def frames_to_video(video_id: str, output_path: Path, fps: int = 15):
+    """
+    Writes frames with OpenCV (mp4v codec — readable by OpenCV/FFmpeg but not
+    by browsers), then transcodes to H.264 so the result plays in a <video> tag.
+    """
     frame_paths = sorted((FRAMES_DIR / video_id).glob('*.jpg'))
     if not frame_paths:
         print(f'No frames found for {video_id}')
@@ -33,8 +39,11 @@ def frames_to_video(video_id: str, output_path: Path, fps: int = 15):
     first = cv2.imread(str(frame_paths[0]))
     h, w  = first.shape[:2]
 
+    with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as tmp:
+        tmp_path = Path(tmp.name)
+
     writer = cv2.VideoWriter(
-        str(output_path),
+        str(tmp_path),
         cv2.VideoWriter_fourcc(*'mp4v'),
         fps,
         (w, h),
@@ -42,6 +51,16 @@ def frames_to_video(video_id: str, output_path: Path, fps: int = 15):
     for fp in frame_paths:
         writer.write(cv2.imread(str(fp)))
     writer.release()
+
+    ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+    subprocess.run(
+        [ffmpeg, '-y', '-i', str(tmp_path),
+         '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-movflags', '+faststart',
+         str(output_path)],
+        check=True, capture_output=True,
+    )
+    tmp_path.unlink(missing_ok=True)
+
     print(f'Saved: {output_path}  ({len(frame_paths)} frames, {len(frame_paths)/fps:.1f}s)')
 
 

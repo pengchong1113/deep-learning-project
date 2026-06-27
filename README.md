@@ -8,7 +8,7 @@ A deep learning MVP that automatically recognizes fitness exercises from video u
 
 ## Overview
 
-Upload a workout video and the system identifies the exercise being performed in real-time. The pipeline combines a pre-trained CNN (MediaPipe BlazePose) for spatial feature extraction with a custom-trained LSTM for temporal action classification.
+Upload a workout video — or record one straight from your webcam — and the system identifies the exercise being performed and counts your reps. The pipeline combines a pre-trained CNN (MediaPipe BlazePose) for spatial feature extraction with a custom-trained LSTM for temporal action classification, plus a joint-angle peak-detection algorithm for rep counting.
 
 **Supported exercises:** Squat · Push-up · Sit-up · Pull-up · Jumping Jacks · Jump Rope · Bench Press · Clean & Jerk
 
@@ -50,10 +50,12 @@ fitness-assistant/
 │   ├── train.py                # Step 2: train LSTM classifier
 │   └── make_test_video.py      # Utility: convert frames to .mp4 for testing
 ├── backend/
-│   ├── main.py                 # FastAPI app
-│   └── predictor.py            # Inference pipeline
+│   ├── main.py                 # FastAPI app (serves the web UI + /predict)
+│   ├── predictor.py            # Inference pipeline
+│   └── rep_counter.py          # Rep counting via joint-angle peak detection
 ├── frontend/
-│   └── app.py                  # Streamlit UI
+│   ├── static/index.html       # Web UI (upload or record from webcam)
+│   └── app.py                  # Legacy Streamlit UI (kept, not the primary UI)
 ├── models/                     # MediaPipe model file (not in git)
 ├── requirements.txt
 └── README.md
@@ -104,17 +106,28 @@ Trained model is saved to `model/saved_model/best_model.pt`.
 
 ### Step 3 — Run the app
 
-Open **two terminals**, both with the virtual environment activated:
-
 ```bash
-# Terminal 1 — Backend
 uvicorn backend.main:app --reload
-
-# Terminal 2 — Frontend
-streamlit run frontend/app.py
 ```
 
-Open `http://localhost:8501` in your browser, upload a workout video, and click **Analyze**.
+Open `http://localhost:8000` in your browser. Either **upload** a workout video or switch to the **Record** tab to capture one from your webcam, then click **Analyze** to see the predicted exercise, confidence, and rep count.
+
+(The old Streamlit UI still works if you prefer it — run `streamlit run frontend/app.py` in a separate terminal and open `http://localhost:8501`. The FastAPI backend must already be running.)
+
+---
+
+## Deploy to Render (free tier)
+
+The repo includes a `render.yaml` blueprint, so Render can build and run the app with no manual config.
+
+1. Push this branch to GitHub: `git push -u origin naven`
+2. On [render.com](https://render.com), sign up / log in and connect your GitHub account.
+3. **New +** → **Blueprint** → pick this repo → Render detects `render.yaml` and pre-fills the service (branch `naven`, free plan) → **Apply**.
+4. Wait for the build (~5–10 min the first time, mostly installing torch/mediapipe). Render gives you a `https://<service>.onrender.com` URL when it's live.
+
+Notes:
+- Free instances spin down after 15 min of no traffic and take ~30–60s to wake up on the next request — that first request after idle will be slow, not broken.
+- `render.yaml`'s build step re-downloads the MediaPipe pose model automatically (it's gitignored, ~5.7MB); the trained LSTM checkpoint (`model/saved_model/best_model.pt`) is committed directly since it's only ~1MB.
 
 ---
 

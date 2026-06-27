@@ -24,9 +24,9 @@ data/processed/
 data/test_videos/
 
 # Model weights
-model/saved_model/
+model/saved_model/*
+!model/saved_model/best_model.pt
 models/
-*.pt
 *.pth
 *.h5
 *.keras

@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: fitness-assistant
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: "pip install -r requirements.txt && python -c \"from scripts.extract_keypoints import ensure_model; ensure_model()\""
+    startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
