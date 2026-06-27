@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     branch: main
-    buildCommand: "pip install -r requirements.txt && python -c \"from scripts.extract_keypoints import ensure_model; ensure_model()\""
+    buildCommand: "apt-get update && apt-get install -y libgl1 libegl1 libgles2 libglib2.0-0 && pip install -r requirements.txt && python -c \"from scripts.extract_keypoints import ensure_model; ensure_model()\""
     startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
     healthCheckPath: /health
     envVars:
