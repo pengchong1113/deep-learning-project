@@ -1,12 +1,8 @@
 services:
   - type: web
     name: fitness-assistant
-    runtime: python
+    runtime: docker
     plan: free
     branch: main
-    buildCommand: "apt-get update && apt-get install -y libgl1 libegl1 libgles2 libglib2.0-0 && pip install -r requirements.txt && python -c \"from scripts.extract_keypoints import ensure_model; ensure_model()\""
-    startCommand: "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /health
-    envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.9
