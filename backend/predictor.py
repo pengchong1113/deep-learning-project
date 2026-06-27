@@ -44,16 +44,34 @@ class Predictor:
         )
         return mp.tasks.vision.PoseLandmarker.create_from_options(options)
 
-    def _extract_keypoints(self, video_path: str):
-        """Returns (frames, 99) flattened array and (frames, 33, 3) full array."""
+    def _extract_keypoints(self, video_path: str, max_dim: int = 480, frame_step: int = 2):
+        """Returns (frames, 99) flattened array and (frames, 33, 3) full array.
+
+        max_dim: longest edge is resized to this before pose estimation
+        frame_step: process every Nth frame (2 = half the frames, 2× faster)
+        """
         cap = cv2.VideoCapture(video_path)
         flat_seq = []
         full_seq = []
+        frame_idx = 0
 
         while True:
             ok, frame = cap.read()
             if not ok:
                 break
+
+            # skip frames
+            if frame_idx % frame_step != 0:
+                frame_idx += 1
+                continue
+            frame_idx += 1
+
+            # downscale to speed up MediaPipe
+            h, w = frame.shape[:2]
+            if max(h, w) > max_dim:
+                scale = max_dim / max(h, w)
+                frame = cv2.resize(frame, (int(w * scale), int(h * scale)))
+
             img_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             mp_img  = mp.Image(image_format=mp.ImageFormat.SRGB, data=img_rgb)
             result  = self.landmarker.detect(mp_img)
