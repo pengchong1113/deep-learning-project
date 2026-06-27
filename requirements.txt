@@ -1,3 +1,7 @@
+# CPU-only torch wheels (the default PyPI wheel bundles CUDA, ~2GB+ which
+# blows past Render's free-tier build/disk limits for no benefit on a CPU box)
+--extra-index-url https://download.pytorch.org/whl/cpu
+
 # Core
 numpy
 scipy
@@ -6,8 +10,10 @@ tqdm
 matplotlib
 
 # Computer Vision & Pose Estimation
-opencv-python
-mediapipe==0.9.3
+# headless build: Render's base image has no libGL/X11, which the GUI build of
+# opencv-python requires at import time even though we never call cv2.imshow etc.
+opencv-python-headless
+mediapipe>=0.10.13
 
 # Deep Learning
 torch
@@ -24,3 +30,6 @@ streamlit
 # Notebook
 jupyterlab
 ipykernel
+
+# Dev utility: re-encode scripts/make_test_video.py output to H.264 (browser-playable)
+imageio-ffmpeg

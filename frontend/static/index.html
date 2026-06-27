@@ -176,6 +176,60 @@
       color: #ff6b6b;
       font-size: 0.9rem;
     }
+
+    /* ── Mode tabs ── */
+    .mode-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .mode-tab {
+      flex: 1;
+      padding: 0.6rem;
+      border: 1px solid #2e3550;
+      border-radius: 10px;
+      background: #1a1f2e;
+      color: #8b8fa8;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .mode-tab.active {
+      background: linear-gradient(90deg, #00d4ff, #7b2ff7);
+      color: #fff;
+      border-color: transparent;
+    }
+
+    /* ── Record area ── */
+    .camera-placeholder {
+      border: 2px dashed #2e3550;
+      border-radius: 16px;
+      padding: 2.5rem 1rem;
+      text-align: center;
+      color: #8b8fa8;
+    }
+    .camera-placeholder .icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+
+    .btn-stop { background: linear-gradient(90deg, #ff4d4d, #c0392b); }
+
+    .rec-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      margin-top: 0.8rem;
+      font-size: 0.9rem;
+      color: #ff6b6b;
+      font-weight: 600;
+    }
+    .rec-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #ff4d4d;
+      animation: pulse 1s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(1.3); }
+    }
   </style>
 </head>
 <body>
@@ -187,16 +241,39 @@
 
   <div class="layout">
 
-    <!-- Left: upload -->
+    <!-- Left: input -->
     <div>
-      <label class="upload-box" id="uploadBox">
-        <input type="file" id="fileInput" accept="video/*" />
-        <div class="icon">🎬</div>
-        <div>Click to upload a video</div>
-        <div style="font-size:0.8rem; margin-top:0.3rem;">MP4 · AVI · MOV · MKV</div>
-      </label>
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="uploadTab">📁 Upload</button>
+        <button class="mode-tab" id="recordTab">🎥 Record</button>
+      </div>
 
-      <video id="videoPreview" controls style="display:none;"></video>
+      <div id="uploadMode">
+        <label class="upload-box" id="uploadBox">
+          <input type="file" id="fileInput" accept="video/*" />
+          <div class="icon">🎬</div>
+          <div>Click to upload a video</div>
+          <div style="font-size:0.8rem; margin-top:0.3rem;">MP4 · AVI · MOV · MKV</div>
+        </label>
+      </div>
+
+      <div id="recordMode" style="display:none;">
+        <div class="camera-placeholder" id="cameraPlaceholder">
+          <div class="icon">📷</div>
+          <div>Click "Start Camera" to begin</div>
+        </div>
+        <div class="record-controls">
+          <button class="btn" id="startCameraBtn">Start Camera</button>
+          <button class="btn" id="recordBtn" style="display:none;">⏺ Start Recording</button>
+          <button class="btn btn-stop" id="stopBtn" style="display:none;">⏹ Stop Recording</button>
+          <button class="btn" id="recordAgainBtn" style="display:none;">🔁 Record Again</button>
+        </div>
+        <div class="rec-indicator" id="recIndicator" style="display:none;">
+          <span class="rec-dot"></span> <span id="recTimer">0:00</span>
+        </div>
+      </div>
+
+      <video id="videoPreview" controls playsinline style="display:none;"></video>
 
       <button class="btn" id="analyzeBtn" disabled>Analyze</button>
     </div>
@@ -218,23 +295,160 @@
     const analyzeBtn  = document.getElementById('analyzeBtn');
     const resultsPanel = document.getElementById('resultsPanel');
 
+    const uploadTab         = document.getElementById('uploadTab');
+    const recordTab         = document.getElementById('recordTab');
+    const uploadMode        = document.getElementById('uploadMode');
+    const recordMode        = document.getElementById('recordMode');
+    const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+    const startCameraBtn    = document.getElementById('startCameraBtn');
+    const recordBtn         = document.getElementById('recordBtn');
+    const stopBtn           = document.getElementById('stopBtn');
+    const recordAgainBtn    = document.getElementById('recordAgainBtn');
+    const recIndicator      = document.getElementById('recIndicator');
+    const recTimerEl        = document.getElementById('recTimer');
+
     const ACTION_EMOJI = {
       squat: '🏋️', pushup: '💪', situp: '🤸', pullup: '🙌',
       jumping_jacks: '⭐', jump_rope: '🪢', bench_press: '🏋️', clean_and_jerk: '🥇'
     };
 
-    let selectedFile = null;
+    let selectedFile     = null;
+    let cameraStream     = null;
+    let mediaRecorder    = null;
+    let recordedChunks   = [];
+    let recTimerInterval = null;
+    let recSeconds       = 0;
 
+    function resetResults() {
+      resultsPanel.innerHTML = '<div class="placeholder"><div class="icon">📊</div><div>Results will appear here</div></div>';
+    }
+
+    function stopCameraStream() {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+        cameraStream = null;
+      }
+    }
+
+    // ── Mode tabs ────────────────────────────────────────────────────────────
+    function switchMode(mode) {
+      const toUpload = mode === 'upload';
+      uploadTab.classList.toggle('active', toUpload);
+      recordTab.classList.toggle('active', !toUpload);
+      uploadMode.style.display = toUpload ? 'block' : 'none';
+      recordMode.style.display = toUpload ? 'none' : 'block';
+
+      if (toUpload) {
+        stopCameraStream();
+        clearInterval(recTimerInterval);
+      }
+    }
+
+    uploadTab.addEventListener('click', () => switchMode('upload'));
+    recordTab.addEventListener('click', () => {
+      if (!navigator.mediaDevices || !window.MediaRecorder) {
+        resultsPanel.innerHTML = '<div class="error">Your browser does not support webcam recording. Try Chrome, Firefox, or Edge.</div>';
+        return;
+      }
+      switchMode('record');
+    });
+
+    // ── Upload flow ──────────────────────────────────────────────────────────
     fileInput.addEventListener('change', () => {
       const file = fileInput.files[0];
       if (!file) return;
       selectedFile = file;
+      videoEl.srcObject = null;
+      videoEl.muted = false;
+      videoEl.controls = true;
       videoEl.src = URL.createObjectURL(file);
       videoEl.style.display = 'block';
       analyzeBtn.disabled = false;
-      resultsPanel.innerHTML = '<div class="placeholder"><div class="icon">📊</div><div>Results will appear here</div></div>';
+      resetResults();
     });
 
+    // ── Record flow ──────────────────────────────────────────────────────────
+    startCameraBtn.addEventListener('click', async () => {
+      try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+      } catch (err) {
+        resultsPanel.innerHTML = '<div class="error">Could not access camera — check browser permissions.</div>';
+        return;
+      }
+      cameraPlaceholder.style.display = 'none';
+      videoEl.srcObject = cameraStream;
+      videoEl.muted = true;
+      videoEl.controls = false;
+      videoEl.style.display = 'block';
+      videoEl.play();
+
+      startCameraBtn.style.display = 'none';
+      recordBtn.style.display = 'inline-block';
+    });
+
+    recordBtn.addEventListener('click', () => {
+      recordedChunks = [];
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp8')
+        ? 'video/webm;codecs=vp8'
+        : 'video/webm';
+      mediaRecorder = new MediaRecorder(cameraStream, { mimeType });
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) recordedChunks.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        stopCameraStream();
+        clearInterval(recTimerInterval);
+        recIndicator.style.display = 'none';
+
+        const blob = new Blob(recordedChunks, { type: mimeType });
+        selectedFile = new File([blob], 'recording.webm', { type: mimeType });
+
+        videoEl.srcObject = null;
+        videoEl.muted = false;
+        videoEl.controls = true;
+        videoEl.src = URL.createObjectURL(blob);
+
+        analyzeBtn.disabled = false;
+        stopBtn.style.display = 'none';
+        recordAgainBtn.style.display = 'inline-block';
+        resetResults();
+      };
+
+      mediaRecorder.start();
+      recSeconds = 0;
+      recTimerEl.textContent = '0:00';
+      recIndicator.style.display = 'flex';
+      recTimerInterval = setInterval(() => {
+        recSeconds++;
+        const m = Math.floor(recSeconds / 60);
+        const s = String(recSeconds % 60).padStart(2, '0');
+        recTimerEl.textContent = `${m}:${s}`;
+      }, 1000);
+
+      recordBtn.style.display = 'none';
+      stopBtn.style.display = 'inline-block';
+    });
+
+    stopBtn.addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+    });
+
+    recordAgainBtn.addEventListener('click', () => {
+      recordAgainBtn.style.display = 'none';
+      startCameraBtn.style.display = 'inline-block';
+      cameraPlaceholder.style.display = 'block';
+      videoEl.style.display = 'none';
+      videoEl.src = '';
+      selectedFile = null;
+      analyzeBtn.disabled = true;
+      resetResults();
+    });
+
+    // ── Analyze (shared by upload + record flows) ─────────────────────────────
     analyzeBtn.addEventListener('click', async () => {
       if (!selectedFile) return;
 
