@@ -4,6 +4,12 @@ A deep learning MVP that automatically recognizes fitness exercises from video u
 
 **IE University | Deep Learning Course**
 
+## Live Demo
+
+**[https://deep-learning-project-1-afoe.onrender.com/](https://deep-learning-project-1-afoe.onrender.com/)**
+
+> The app runs on Render's free tier — if it hasn't been used recently it may take ~30s to wake up on the first request.
+
 ---
 
 ## Overview
@@ -24,14 +30,40 @@ MediaPipe BlazePose (pre-trained CNN)
     ↓
 Keypoint sequence  (64 frames × 99 features)
     ↓
-Custom LSTM Classifier (2 layers, hidden=128)
+Custom LSTM Classifier
 — models temporal patterns across frames
     ↓
-Exercise prediction + confidence score
+Exercise prediction + confidence score + rep count
 ```
 
 **Dataset:** Penn Action Dataset (1,163 videos across 8 fitness action classes)
 **Val Accuracy:** 80.5%
+
+### LSTM Classifier
+
+| Parameter | Value |
+|-----------|-------|
+| Input size | 99 (33 landmarks × x/y/z) |
+| Hidden size | 128 |
+| Layers | 2 |
+| Dropout | 0.3 |
+| Sequence length | 64 frames (padded / truncated) |
+| Output | 8 classes |
+
+**Training setup:** Adam optimizer (lr=1e-3, weight_decay=1e-4), ReduceLROnPlateau scheduler (patience=8, factor=0.5), 60 epochs, batch size 32.
+
+### Rep Counting
+
+Rep counting does not require an additional model. For each exercise, a key joint angle is tracked across all frames (e.g. knee angle for squats, elbow angle for push-ups). The angle signal is smoothed with a Savitzky-Golay filter and periodic peaks or valleys are detected with `scipy.signal.find_peaks`. Each detected peak/valley corresponds to one completed repetition.
+
+| Exercise | Tracked joint |
+|----------|--------------|
+| Squat | Knee (hip–knee–ankle) |
+| Push-up / Pull-up / Bench Press | Elbow (shoulder–elbow–wrist) |
+| Sit-up | Hip (shoulder–hip–knee) |
+| Jumping Jacks | Shoulder abduction (hip–shoulder–wrist) |
+| Jump Rope | Knee (hip–knee–ankle) |
+| Clean & Jerk | Elbow (shoulder–elbow–wrist) |
 
 ---
 
@@ -120,9 +152,9 @@ Open `http://localhost:8000` in your browser. Either **upload** a workout video 
 
 The repo includes a `render.yaml` blueprint, so Render can build and run the app with no manual config.
 
-1. Push this branch to GitHub: `git push -u origin naven`
+1. Push to GitHub: `git push origin main`
 2. On [render.com](https://render.com), sign up / log in and connect your GitHub account.
-3. **New +** → **Blueprint** → pick this repo → Render detects `render.yaml` and pre-fills the service (branch `naven`, free plan) → **Apply**.
+3. **New +** → **Blueprint** → pick this repo → Render detects `render.yaml` and pre-fills the service → **Apply**.
 4. Wait for the build (~5–10 min the first time, mostly installing torch/mediapipe). Render gives you a `https://<service>.onrender.com` URL when it's live.
 
 Notes:
@@ -154,5 +186,5 @@ Notes:
 | Pose estimation | MediaPipe BlazePose |
 | Deep learning | PyTorch |
 | Backend API | FastAPI |
-| Frontend | Streamlit |
+| Frontend | HTML / CSS / JavaScript |
 | Data processing | OpenCV, NumPy, SciPy |
