@@ -48,3 +48,6 @@ Thumbs.db
 logs/
 *.log
 runs/
+
+# Training results (generated locally, not committed)
+results/
